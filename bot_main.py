@@ -118,6 +118,17 @@ def handle_public(message):
     }).execute()
     bot.reply_to(message, "🔥 Received. Stay tuned.")
     bot.send_message(ADMIN_ID, f"🔔 **New Confession!**\n{message.text}")
+    # --- COMMAND: /start (The Welcome Auto-Reply) ---
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    welcome_text = (
+        "🔥 **Welcome to BedTea KE uncut**\n\n"
+        "You’re 100% anonymous here — no logs, no names.\n\n"
+        "Drop your juiciest bedroom confession now → gets posted on @BedTeaKE "
+        "tonight (zero details revealed).\n\n"
+        "Or just say **'hi'** and I’ll guide you. ☕"
+    )
+    bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown")
 
 # --- FLASK SERVER (For Render "Keep Alive") ---
 app = Flask('')
