@@ -14,95 +14,80 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 groq_client = Groq(api_key=GROQ_API_KEY)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- PROMPT ENGINEERING (The New Vibe) ---
+# --- SAFETY CONFIGURATION (The Bouncer) ---
+# If any of these words appear, the draft is auto-rejected.
+BANNED_KEYWORDS = [
+    "rape", "force", "assault", "non-consensual", "drunk", "asleep", 
+    "minor", "child", "underage", "drug", "trafficking", "abuse", "violent"
+]
 
-# 1. BRAINSTORM MODE (Pure Imagination)
+def is_safe(text):
+    text_lower = text.lower()
+    for bad_word in BANNED_KEYWORDS:
+        if bad_word in text_lower:
+            print(f"⚠️ SAFETY ALERT: Blocked content containing '{bad_word}'")
+            return False
+    return True
+
+# --- PROMPT ENGINEERING (The Intimate & Safe Vibe) ---
 BRAINSTORM_PROMPT = """
-You are a controversial relationship columnist for a Nairobi blog.
-Generate 3 distinct, engaging, and spicy tweet ideas.
+You are a bold Relationship & Intimacy Coach for a Nairobi audience.
+Generate 3 distinct, high-engagement tweet ideas. 
 
-TOPICS ALLOWED:
-- Intimacy & Bedroom dynamics (18+ implied).
-- Cheating & infidelity stories.
-- Toxic exes and situationships.
-- Gender wars (Men vs Women behavior).
+THEMES (Focus on Intimacy & Dynamics):
+- Bedroom compatibility & preferences (Spicy but consensual).
+- "Taboo" relationship questions (e.g., body count, age gaps).
+- Gender debates (Men vs Women expectations).
 
-TOPICS BANNED (Do NOT write about):
-- Money, bills, rent, or hustle.
-- Politics or taxes.
+FORMATS (Mix these up):
+1. THE POLL: "Question? 👇 Like for [Option A] | RT for [Option B]"
+2. THE DEBATE: "Unpopular Opinion: [Statement]. Argue in the comments."
+3. THE STORY: A short scenario asking "Who is wrong here?"
 
-FORMATTING:
-- Language: Strict English (The user will add slang later).
-- Tone: Savage, direct, questioning, or storytelling.
-- Length: Maximize the 280 limit. Make them detailed.
-- Output: Python list of strings. Example: ["Idea 1", "Idea 2", "Idea 3"]
+STRICT SAFETY RULES:
+- NO non-consensual content (rape, force, assault).
+- NO mention of money, rent, or politics.
+- Language: English only (User will add Sheng).
+- Length: Maximize 260 chars.
+
+Output: Python list of strings. Example: ["Poll text...", "Debate text...", "Story text..."]
 """
-
-# 2. REDDIT MODE (Reacting to News)
-SYSTEM_PROMPT = """
-You are a relationship commentator.
-Take the provided Reddit topic and turn it into a spicy debate about relationships/intimacy.
-Even if the topic is boring, twist it into a relationship angle.
-
-- Language: English only.
-- Tone: "Tea Master" / Gossip / Warning.
-- Length: Around 240-260 characters.
-- NO mention of money or finance.
-"""
-
-def get_reddit_topic():
-    print("📡 Scanning Reddit...")
-    rss_url = "https://www.reddit.com/r/Kenya/top/.rss?t=day"
-    feed = feedparser.parse(rss_url)
-    if feed.entries:
-        return random.choice(feed.entries[:5]).title
-    return None
 
 def run_brainstorm():
-    print("🧠 Brainstorming spicy content...")
-    completion = groq_client.chat.completions.create(
-        messages=[{"role": "system", "content": BRAINSTORM_PROMPT}],
-        model="llama-3.3-70b-versatile",
-        temperature=0.9 # Higher creativity for wilder stories
-    )
-    
-    raw_text = completion.choices[0].message.content
-    
-    # Clean up text
-    ideas = raw_text.split("\n")
-    count = 0
-    
-    for idea in ideas:
-        # Clean formatting like "1. " or "- "
-        clean_idea = idea.lstrip("1234567890.- ")
+    print("🧠 Brainstorming intimate content...")
+    try:
+        completion = groq_client.chat.completions.create(
+            messages=[{"role": "system", "content": BRAINSTORM_PROMPT}],
+            model="llama-3.3-70b-versatile",
+            temperature=0.95 # High creativity
+        )
         
-        if len(clean_idea) > 50: # Filter out garbage lines
-            print(f"💡 Saving Idea: {clean_idea[:50]}...")
-            supabase.table("posts").insert({
-                "content": clean_idea, 
-                "post_type": "BRAINSTORM", 
-                "status": "DRAFT"
-            }).execute()
-            count += 1
+        raw_text = completion.choices[0].message.content
+        ideas = raw_text.split("\n")
+        count = 0
+        
+        for idea in ideas:
+            # Clean the text
+            clean_idea = idea.lstrip("1234567890.- \"'").strip()
             
-    print(f"✅ Saved {count} new drafts.")
+            # Filter 1: Length Check
+            if len(clean_idea) < 20: 
+                continue
 
-def run_reddit_mode():
-    topic = get_reddit_topic()
-    if not topic: return
-    
-    print(f"🗞️ Found Reddit Topic: {topic}")
-    completion = groq_client.chat.completions.create(
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Topic: {topic}"}
-        ],
-        model="llama-3.3-70b-versatile",
-    )
-    tweet = completion.choices[0].message.content
-    supabase.table("posts").insert({"content": tweet, "status": "DRAFT"}).execute()
-    print("✅ Reddit Draft Saved.")
+            # Filter 2: Safety Check (The Bouncer)
+            if is_safe(clean_idea):
+                print(f"💡 Saving Safe Idea: {clean_idea[:40]}...")
+                supabase.table("posts").insert({
+                    "content": clean_idea, 
+                    "post_type": "BRAINSTORM", 
+                    "status": "DRAFT"
+                }).execute()
+                count += 1
+            
+        print(f"✅ Saved {count} safe drafts.")
+
+    except Exception as e:
+        print(f"❌ Error generating content: {e}")
 
 if __name__ == "__main__":
-    # Run the brainstorm mode to test the new "Spicy English" vibe
     run_brainstorm()
