@@ -14,20 +14,40 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 groq_client = Groq(api_key=GROQ_API_KEY)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- MODES ---
-# 1. Reddit Mode (React to news)
-# 2. Brainstorm Mode (Create pure content/debates)
+# --- PROMPT ENGINEERING (The New Vibe) ---
 
+# 1. BRAINSTORM MODE (Pure Imagination)
 BRAINSTORM_PROMPT = """
-You are BedTeaKE, a creative Nairobi content creator. 
-Generate 3 distinct, engaging, and slightly controversial tweet ideas about: 
-- Modern Dating in Nairobi
-- Money/Hustle culture
-- Relationship drama (Sponsors, Kanairo situations)
+You are a controversial relationship columnist for a Nairobi blog.
+Generate 3 distinct, engaging, and spicy tweet ideas.
 
-Format the output as a Python list of strings.
-Example: ["Tweet 1 text...", "Tweet 2 text...", "Tweet 3 text..."]
-Keep them in the 'BedTeaKE' style: English + Sheng mix. Under 260 chars.
+TOPICS ALLOWED:
+- Intimacy & Bedroom dynamics (18+ implied).
+- Cheating & infidelity stories.
+- Toxic exes and situationships.
+- Gender wars (Men vs Women behavior).
+
+TOPICS BANNED (Do NOT write about):
+- Money, bills, rent, or hustle.
+- Politics or taxes.
+
+FORMATTING:
+- Language: Strict English (The user will add slang later).
+- Tone: Savage, direct, questioning, or storytelling.
+- Length: Maximize the 280 limit. Make them detailed.
+- Output: Python list of strings. Example: ["Idea 1", "Idea 2", "Idea 3"]
+"""
+
+# 2. REDDIT MODE (Reacting to News)
+SYSTEM_PROMPT = """
+You are a relationship commentator.
+Take the provided Reddit topic and turn it into a spicy debate about relationships/intimacy.
+Even if the topic is boring, twist it into a relationship angle.
+
+- Language: English only.
+- Tone: "Tea Master" / Gossip / Warning.
+- Length: Around 240-260 characters.
+- NO mention of money or finance.
 """
 
 def get_reddit_topic():
@@ -39,25 +59,33 @@ def get_reddit_topic():
     return None
 
 def run_brainstorm():
-    print("🧠 Brainstorming original ideas...")
+    print("🧠 Brainstorming spicy content...")
     completion = groq_client.chat.completions.create(
         messages=[{"role": "system", "content": BRAINSTORM_PROMPT}],
         model="llama-3.3-70b-versatile",
+        temperature=0.9 # Higher creativity for wilder stories
     )
-    # The AI will give us a block of text; we just want to save it as a draft to edit later
+    
     raw_text = completion.choices[0].message.content
     
-    # Clean up the text to get just the ideas (simple split)
+    # Clean up text
     ideas = raw_text.split("\n")
+    count = 0
     
     for idea in ideas:
-        if len(idea) > 20: # Filter out short garbage lines
-            print(f"💡 Saving Idea: {idea[:50]}...")
+        # Clean formatting like "1. " or "- "
+        clean_idea = idea.lstrip("1234567890.- ")
+        
+        if len(clean_idea) > 50: # Filter out garbage lines
+            print(f"💡 Saving Idea: {clean_idea[:50]}...")
             supabase.table("posts").insert({
-                "content": idea, 
+                "content": clean_idea, 
                 "post_type": "BRAINSTORM", 
                 "status": "DRAFT"
             }).execute()
+            count += 1
+            
+    print(f"✅ Saved {count} new drafts.")
 
 def run_reddit_mode():
     topic = get_reddit_topic()
@@ -66,7 +94,8 @@ def run_reddit_mode():
     print(f"🗞️ Found Reddit Topic: {topic}")
     completion = groq_client.chat.completions.create(
         messages=[
-            {"role": "system", "content": "Write a spicy tweet (English+Sheng) about: " + topic},
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"Topic: {topic}"}
         ],
         model="llama-3.3-70b-versatile",
     )
@@ -75,6 +104,5 @@ def run_reddit_mode():
     print("✅ Reddit Draft Saved.")
 
 if __name__ == "__main__":
-    # You can uncomment whichever one you want to run
-    # run_reddit_mode() 
-    run_brainstorm() # <--- Running this one to get fresh original ideas
+    # Run the brainstorm mode to test the new "Spicy English" vibe
+    run_brainstorm()
